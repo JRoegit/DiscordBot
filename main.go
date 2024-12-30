@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -42,7 +43,7 @@ func main() {
 
 	defer dgSession.Close()
 
-	getRecommendationsByTitle("ABC")
+	// getRecommendationsByTitle("ABC")
 
 	signalChannel := make(chan os.Signal, 1)
 	signal.Notify(signalChannel, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
@@ -87,6 +88,15 @@ func messageHandler(session *discordgo.Session, message *discordgo.MessageCreate
 					panic(err)
 				}
 			}
+		}
+	}
+	if after, result := strings.CutPrefix(message.Content, ".link "); result {
+		anilistID := searchUserIDByName(after)
+		_, err := data.CreateUser(message.Author.ID, anilistID)
+		if err != nil {
+			session.ChannelMessageSend(message.ChannelID, err.Error())
+		} else {
+			session.ChannelMessageSend(message.ChannelID, "Account Linked!")
 		}
 	}
 }
