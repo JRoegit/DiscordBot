@@ -2,6 +2,7 @@ package main
 
 import (
 	"discordBot/data"
+	"fmt"
 	"os"
 	"os/signal"
 	"strings"
@@ -53,13 +54,27 @@ func messageHandler(session *discordgo.Session, message *discordgo.MessageCreate
 		return
 	}
 
-	if after, result := strings.CutPrefix(message.Content, ".link "); result {
-		anilistID := searchUserIDByName(after)
-		_, err := data.CreateUser(message.Author.ID, anilistID)
-		if err != nil {
-			session.ChannelMessageSend(message.ChannelID, err.Error())
-		} else {
-			session.ChannelMessageSend(message.ChannelID, "Account Linked!")
+	if after, isCommand := strings.CutPrefix(message.Content, "."); isCommand {
+		split := strings.SplitAfterN(after, " ", 2)
+		command := strings.Trim(split[0], " ")
+		fmt.Println(command)
+		switch command {
+		case "link":
+			if len(split) == 2 {
+				anilistID := searchUserIDByName(split[1])
+				_, err := data.CreateUser(message.Author.ID, anilistID)
+				if err != nil {
+					session.ChannelMessageSend(message.ChannelID, err.Error())
+				} else {
+					session.ChannelMessageSend(message.ChannelID, "Account Linked!")
+				}
+			} else {
+				session.ChannelMessageSend(message.ChannelID, "> Invalid command formatting, try: .link *Username*")
+			}
+		case "help":
+
+		default:
+			session.ChannelMessageSend(message.ChannelID, "> **Not sure about that one... try .help for a list of commands**")
 		}
 	}
 }
