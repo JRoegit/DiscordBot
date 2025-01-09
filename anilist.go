@@ -23,24 +23,39 @@ type aniData struct {
 }
 
 type page struct {
-	Recs []mediaRec `json:"recommendations"`
+	Recs      []mediaRecItem  `json:"recommendations"`
+	MediaList []mediaListItem `json:"mediaList"`
 }
 
+type mediaListItem struct {
+	Media       media     `json:"media"`
+	Score       float64   `json:"score"`
+	StartedAt   fuzzyDate `json:"startedAt"`
+	CompletedAt fuzzyDate `json:"completedAt"`
+}
+
+type fuzzyDate struct {
+	Day   int `json:"day"`
+	Month int `json:"month"`
+	Year  int `json:"year"`
+}
 type user struct {
 	ID int `json:"id"`
 }
 
-type mediaRec struct {
+type mediaRecItem struct {
 	Media media `json:"mediaRecommendation"`
 }
 
 type media struct {
 	CoverImage coverImage `json:"coverImage"`
 	Title      title      `json:"title"`
+	SiteURL    string     `json:"siteUrl"`
 }
 
 type coverImage struct {
-	Large string `json:"large"`
+	Large  string `json:"large"`
+	Medium string `json:"medium"`
 }
 
 type title struct {
@@ -108,4 +123,42 @@ func searchUserIDByName(userName string) string {
 	}
 
 	return strconv.Itoa(data.Data.User.ID)
+}
+
+func getTopMediaByID(AnilistID string, MediaType string, Page int, PerPage int) []mediaListItem {
+	var MediaListItems []mediaListItem
+
+	reqQuery := strings.NewReader(fmt.Sprintf(`{
+	"query": "query Query($userId: Int, $sort: [MediaListSort], $page: Int, $perPage: Int, $type: MediaType) { Page(page: $page, perPage: $perPage) { mediaList(userId: $userId, sort: $sort, type: $type) {media {title {english native romaji} siteUrl coverImage{medium}} score startedAt {day month year} completedAt {day month year}}}}",
+	"variables": {
+		"userId": %s,
+		"sort": "SCORE_DESC",
+		"page": %d,
+		"perPage": %d,
+		"type": "%s"
+		}
+	}`, AnilistID, Page, PerPage, MediaType))
+
+	response, err := http.Post(aniListEndPoint, "application/json", reqQuery)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	defer response.Body.Close()
+
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		fmt.Println(err)
+	}
+	var data topLevel
+	err = json.Unmarshal(body, &data)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	for _, Item := range data.Data.Page.MediaList {
+		MediaListItems = append(MediaListItems, Item)
+	}
+
+	return MediaListItems
 }
