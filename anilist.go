@@ -39,8 +39,36 @@ type fuzzyDate struct {
 	Month int `json:"month"`
 	Year  int `json:"year"`
 }
+
 type user struct {
-	ID int `json:"id"`
+	ID             int           `json:"id"`
+	Avatar         avatar        `json:"avatar"`
+	About          string        `json:"about"`
+	Name           string        `json:"name"`
+	SiteURL        string        `json:"siteUrl"`
+	UserStatistics userStatistic `json:"statistics"`
+}
+
+type userStatistic struct {
+	AnimeStatistics animeStatistic `json:"anime"`
+	MangaStatistics mangaStatistic `json:"manga"`
+}
+
+type mangaStatistic struct {
+	ChaptersRead int     `json:"chaptersRead"`
+	Count        int     `json:"count"`
+	MeanScore    float32 `json:"meanScore"`
+}
+
+type animeStatistic struct {
+	EpisodesWatched int     `json:"episodesWatched"`
+	Count           int     `json:"count"`
+	MeanScore       float32 `json:"meanScore"`
+}
+
+type avatar struct {
+	Large  string `json:"large"`
+	Medium string `json:"medium"`
 }
 
 type mediaRecItem struct {
@@ -105,19 +133,23 @@ func searchUserIDByName(userName string) string {
   			"search": "%s"
 			}
 		}`, userName))
-	response, err := http.Post(aniListEndPoint, "application/json", reqQuery)
-	if err != nil {
-		fmt.Println(err)
-	}
+	// response, err := http.Post(aniListEndPoint, "application/json", reqQuery)
+	// if err != nil {
+	// 	fmt.Println(err)
+	// }
 
-	defer response.Body.Close()
+	// defer response.Body.Close()
 
-	body, err := io.ReadAll(response.Body)
-	if err != nil {
-		fmt.Println(err)
-	}
-	var data topLevel
-	err = json.Unmarshal(body, &data)
+	// body, err := io.ReadAll(response.Body)
+	// if err != nil {
+	// 	fmt.Println(err)
+	// }
+	// var data topLevel
+	// err = json.Unmarshal(body, &data)
+	// if err != nil {
+	// 	fmt.Println(err)
+	// }
+	data, err := fetchTopLevelFromQuery(reqQuery)
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -139,19 +171,24 @@ func getTopMediaByID(AnilistID string, MediaType string, Page int, PerPage int) 
 		}
 	}`, AnilistID, Page, PerPage, MediaType))
 
-	response, err := http.Post(aniListEndPoint, "application/json", reqQuery)
-	if err != nil {
-		fmt.Println(err)
-	}
+	// response, err := http.Post(aniListEndPoint, "application/json", reqQuery)
+	// if err != nil {
+	// 	fmt.Println(err)
+	// }
 
-	defer response.Body.Close()
+	// defer response.Body.Close()
 
-	body, err := io.ReadAll(response.Body)
-	if err != nil {
-		fmt.Println(err)
-	}
-	var data topLevel
-	err = json.Unmarshal(body, &data)
+	// body, err := io.ReadAll(response.Body)
+	// if err != nil {
+	// 	fmt.Println(err)
+	// }
+	// var data topLevel
+	// err = json.Unmarshal(body, &data)
+	// if err != nil {
+	// 	fmt.Println(err)
+	// }
+
+	data, err := fetchTopLevelFromQuery(reqQuery)
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -162,3 +199,27 @@ func getTopMediaByID(AnilistID string, MediaType string, Page int, PerPage int) 
 
 	return MediaListItems
 }
+
+func fetchTopLevelFromQuery(QueryString *strings.Reader) (topLevel, error) {
+	response, err := http.Post(aniListEndPoint, "application/json", QueryString)
+	if err != nil {
+		return topLevel{}, err
+	}
+
+	defer response.Body.Close()
+
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		return topLevel{}, err
+	}
+	var data topLevel
+	err = json.Unmarshal(body, &data)
+	if err != nil {
+		return topLevel{}, err
+	}
+	return data, nil
+}
+
+// func getUserInfoByID(AnilistID string) user {
+
+// }
