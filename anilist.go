@@ -161,7 +161,7 @@ func getTopMediaByID(AnilistID string, MediaType string, Page int, PerPage int) 
 	var MediaListItems []mediaListItem
 
 	reqQuery := strings.NewReader(fmt.Sprintf(`{
-	"query": "query Query($userId: Int, $sort: [MediaListSort], $page: Int, $perPage: Int, $type: MediaType) { Page(page: $page, perPage: $perPage) { mediaList(userId: $userId, sort: $sort, type: $type) {media {title {english native romaji} siteUrl coverImage{medium}} score startedAt {day month year} completedAt {day month year}}}}",
+	"query": "query Query($userId: Int, $sort: [MediaListSort], $page: Int, $perPage: Int, $type: MediaType) { Page(page: $page, perPage: $perPage) { mediaList(userId: $userId, sort: $sort, type: $type) {media {title {english native romaji} siteUrl coverImage{medium large}} score startedAt {day month year} completedAt {day month year}}}}",
 	"variables": {
 		"userId": %s,
 		"sort": "SCORE_DESC",

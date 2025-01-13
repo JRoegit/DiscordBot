@@ -18,6 +18,7 @@ const MainChannelID string = "631979185526800458"
 var AudioBuffer = make([][]byte, 0)
 
 func main() {
+	DownloadImageFromURL()
 	data.Init()
 	dgSession, err := discordgo.New("Bot " + Token)
 	if err != nil {
@@ -102,6 +103,23 @@ func messageHandler(session *discordgo.Session, message *discordgo.MessageCreate
 			Data := getUserInfoByID(ID)
 			embed := CreateProfileMediaEmbed(Data)
 			session.ChannelMessageSendEmbed(message.ChannelID, &embed)
+
+		case "wk":
+
+		case "c":
+			ID, _ := data.GetUserByDiscordID(message.Author.ID)
+			fmt.Printf("ID: %s", ID)
+			Data := getTopMediaByID(ID, "MANGA", 1, 10)
+			var URLs []string
+			for _, item := range Data {
+				URLs = append(URLs, item.Media.CoverImage.Large)
+			}
+			CreateCollageFromImages(URLs)
+			f, err := os.Open("c3b3.jpg")
+			if err != nil {
+				fmt.Println(err)
+			}
+			session.ChannelFileSend(message.ChannelID, "c3b3.jpg", f)
 		case "help":
 
 		default:
@@ -134,14 +152,14 @@ func CreateTopMediaEmbed(Data []mediaListItem) discordgo.MessageEmbed {
 
 func CreateProfileMediaEmbed(Data user) discordgo.MessageEmbed {
 	var fields = []*discordgo.MessageEmbedField{
-		&discordgo.MessageEmbedField{
+		{
 			Name:   "Manga",
-			Value:  fmt.Sprintf("%s Manga read\n%s Chapters read\nAverage score: %s/10\n", Data.UserStatistics.MangaStatistics.Count, Data.UserStatistics.MangaStatistics.ChaptersRead, Data.UserStatistics.MangaStatistics.MeanScore),
+			Value:  fmt.Sprintf("%d Manga read\n%d Chapters read\nAverage score: %.1f/10\n", Data.UserStatistics.MangaStatistics.Count, Data.UserStatistics.MangaStatistics.ChaptersRead, Data.UserStatistics.MangaStatistics.MeanScore),
 			Inline: true,
 		},
-		&discordgo.MessageEmbedField{
+		{
 			Name:   "Anime",
-			Value:  fmt.Sprintf("%s Anime watched\n%s Epidsodes watched\nAverage score: %s/10\n", Data.UserStatistics.AnimeStatistics.Count, Data.UserStatistics.AnimeStatistics.EpisodesWatched, Data.UserStatistics.AnimeStatistics.MeanScore),
+			Value:  fmt.Sprintf("%d Anime watched\n%d Epidsodes watched\nAverage score: %.1f/10\n", Data.UserStatistics.AnimeStatistics.Count, Data.UserStatistics.AnimeStatistics.EpisodesWatched, Data.UserStatistics.AnimeStatistics.MeanScore),
 			Inline: true,
 		},
 	}
