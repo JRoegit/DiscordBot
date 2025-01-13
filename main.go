@@ -97,6 +97,11 @@ func messageHandler(session *discordgo.Session, message *discordgo.MessageCreate
 			embed := CreateTopMediaEmbed(Data)
 			session.ChannelMessageSendEmbed(message.ChannelID, &embed)
 
+		case "me":
+			ID, _ := data.GetUserByDiscordID(message.Author.ID)
+			Data := getUserInfoByID(ID)
+			embed := CreateProfileMediaEmbed(Data)
+			session.ChannelMessageSendEmbed(message.ChannelID, &embed)
 		case "help":
 
 		default:
@@ -120,6 +125,36 @@ func CreateTopMediaEmbed(Data []mediaListItem) discordgo.MessageEmbed {
 		Title:       "Top 10",
 		Thumbnail: &discordgo.MessageEmbedThumbnail{
 			URL:    Data[0].Media.CoverImage.Medium,
+			Width:  128,
+			Height: 128,
+		},
+	}
+	return embed
+}
+
+func CreateProfileMediaEmbed(Data user) discordgo.MessageEmbed {
+	var fields = []*discordgo.MessageEmbedField{
+		&discordgo.MessageEmbedField{
+			Name:   "Manga",
+			Value:  fmt.Sprintf("%s Manga read\n%s Chapters read\nAverage score: %s/10\n", Data.UserStatistics.MangaStatistics.Count, Data.UserStatistics.MangaStatistics.ChaptersRead, Data.UserStatistics.MangaStatistics.MeanScore),
+			Inline: true,
+		},
+		&discordgo.MessageEmbedField{
+			Name:   "Anime",
+			Value:  fmt.Sprintf("%s Anime watched\n%s Epidsodes watched\nAverage score: %s/10\n", Data.UserStatistics.AnimeStatistics.Count, Data.UserStatistics.AnimeStatistics.EpisodesWatched, Data.UserStatistics.AnimeStatistics.MeanScore),
+			Inline: true,
+		},
+	}
+
+	embed := discordgo.MessageEmbed{
+		Author:      &discordgo.MessageEmbedAuthor{},
+		Color:       0x00ff00, // Green
+		Description: Data.About,
+		Timestamp:   time.Now().Format(time.RFC3339), // Discord wants ISO8601; RFC3339 is an extension of ISO8601 and should be completely compatible.
+		Title:       fmt.Sprintf("%s's profile.", Data.Name),
+		Fields:      fields,
+		Thumbnail: &discordgo.MessageEmbedThumbnail{
+			URL:    Data.Avatar.Medium,
 			Width:  128,
 			Height: 128,
 		},

@@ -220,6 +220,17 @@ func fetchTopLevelFromQuery(QueryString *strings.Reader) (topLevel, error) {
 	return data, nil
 }
 
-// func getUserInfoByID(AnilistID string) user {
+func getUserInfoByID(AnilistID string) user {
+	reqQuery := strings.NewReader(fmt.Sprintf(`{
+	"query": "query User($userId: Int) {User(id: $userId) {avatar {large medium }about name siteUrl statistics {anime {count episodesWatched meanScore}manga {chaptersRead count meanScore}}}}",
+	"variables": {
+ 		"userId": %s
+		}
+	}`, AnilistID))
 
-// }
+	data, err := fetchTopLevelFromQuery(reqQuery)
+	if err != nil {
+		fmt.Println(err)
+	}
+	return data.Data.User
+}
