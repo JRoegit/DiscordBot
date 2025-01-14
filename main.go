@@ -57,13 +57,18 @@ func messageHandler(session *discordgo.Session, message *discordgo.MessageCreate
 	}
 
 	if after, isCommand := strings.CutPrefix(message.Content, "."); isCommand {
-		split := strings.SplitAfterN(after, " ", 2)
+		split := strings.SplitAfterN(after, " ", -1)
 		command := strings.Trim(split[0], " ")
-		fmt.Println(command)
+		args := split[1:]
+		// fmt.Println(command)
+		// for _, sp := range split {
+		// 	fmt.Println(sp)
+		// }
+		ID, _ := data.GetUserByDiscordID(message.Author.ID)
 		switch command {
 		case "link":
-			if len(split) == 2 {
-				anilistID := searchUserIDByName(split[1])
+			if len(args) == 1 {
+				anilistID := searchUserIDByName(args[0])
 				_, err := data.CreateUser(message.Author.ID, anilistID)
 				if err != nil {
 					session.ChannelMessageSend(message.ChannelID, err.Error())
@@ -92,14 +97,12 @@ func messageHandler(session *discordgo.Session, message *discordgo.MessageCreate
 			// 		session.ChannelMessageSend(message.ChannelID, `> Invalid media type, try "Manga" or "Anime"`)
 			// 	}
 			// }
-			ID, _ := data.GetUserByDiscordID(message.Author.ID)
 			fmt.Printf("ID: %s", ID)
 			Data := getTopMediaByID(ID, "MANGA", 1, 10)
 			embed := CreateTopMediaEmbed(Data)
 			session.ChannelMessageSendEmbed(message.ChannelID, &embed)
 
 		case "me":
-			ID, _ := data.GetUserByDiscordID(message.Author.ID)
 			Data := getUserInfoByID(ID)
 			embed := CreateProfileMediaEmbed(Data)
 			session.ChannelMessageSendEmbed(message.ChannelID, &embed)
@@ -107,19 +110,42 @@ func messageHandler(session *discordgo.Session, message *discordgo.MessageCreate
 		case "wk":
 
 		case "c":
-			ID, _ := data.GetUserByDiscordID(message.Author.ID)
-			fmt.Printf("ID: %s", ID)
-			Data := getTopMediaByID(ID, "MANGA", 1, 10)
+			// THIS SHIT IS DRIVING ME INSANE...
+			var contentType string = "ANIME"
+			var size int = 9
+			var data []mediaListItem
+
+			if len(args) != 0 {
+				for _, arg := range args {
+					fmt.Printf(`"%s", "%s"`, arg, strings.ToUpper(arg))
+					if strings.ToUpper(arg) == "ANIME" {
+						contentType = "ANIME"
+					}
+					if strings.ToUpper(arg) == "MANGA" {
+						contentType = "MANGA"
+					}
+					if arg == "4x4" {
+						size = 16
+					}
+					if arg == "5x5" {
+						size = 25
+					}
+				}
+				data = getTopMediaByID(ID, contentType, 1, size)
+			} else {
+				data = getTopMediaByID(ID, contentType, 1, size)
+			}
+			fmt.Println(contentType)
 			var URLs []string
-			for _, item := range Data {
+			for _, item := range data {
 				URLs = append(URLs, item.Media.CoverImage.Large)
 			}
 			CreateCollageFromImages(URLs)
-			f, err := os.Open("c3b3.jpg")
+			f, err := os.Open("collage.jpg")
 			if err != nil {
 				fmt.Println(err)
 			}
-			session.ChannelFileSend(message.ChannelID, "c3b3.jpg", f)
+			session.ChannelFileSend(message.ChannelID, "collage.jpg", f)
 		case "help":
 
 		default:

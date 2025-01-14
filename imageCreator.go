@@ -6,6 +6,7 @@ import (
 	"image/color"
 	"image/jpeg"
 	"image/png"
+	"math"
 	"net/http"
 	"os"
 )
@@ -24,26 +25,23 @@ func CreateCollageFromImages(ImagesURLs []string) string {
 			fmt.Println(err)
 		}
 
-		img, format, err := image.Decode(response.Body)
-		fmt.Println(format)
+		img, _, err := image.Decode(response.Body)
 		if err != nil {
 			fmt.Println(err)
 		}
 		images = append(images, img)
 
-		fmt.Println(img.Bounds().String())
 		if imgSize := img.Bounds().Size(); imgSize.Y < minSize.Y {
 			minSize.Y = imgSize.Y
 		}
 	}
-	newImageRect := image.Rect(0, 0, minSize.X*3, minSize.Y*3)
+	sideLength := int(math.Sqrt(float64(len(ImagesURLs))))
+	newImageRect := image.Rect(0, 0, minSize.X*sideLength, minSize.Y*sideLength)
 	newImage := image.NewRGBA64(newImageRect)
-	fmt.Println(minSize.String())
-	fmt.Println(len(images))
+
 	row := 0
 	column := 0
-	for idx := 0; idx < 9; idx++ {
-		img := images[idx]
+	for _, img := range images {
 		for i := 0; i < minSize.X; i++ {
 			// for i := minSize.X * row; i < minSize.X * (row + 1); i++{
 			x := i + (minSize.X * row)
@@ -62,14 +60,14 @@ func CreateCollageFromImages(ImagesURLs []string) string {
 				newImage.SetRGBA64(x, y, rgb)
 			}
 		}
-		if row == 2 {
+		if row == sideLength-1 {
 			row = 0
 			column++
 		} else {
 			row++
 		}
 	}
-	f, _ := os.Create("c3b3.jpg")
+	f, _ := os.Create("collage.jpg")
 	jpeg.Encode(f, newImage, &jpeg.Options{Quality: 100})
 	return ""
 }
