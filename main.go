@@ -58,12 +58,8 @@ func messageHandler(session *discordgo.Session, message *discordgo.MessageCreate
 
 	if after, isCommand := strings.CutPrefix(message.Content, "."); isCommand {
 		split := strings.SplitAfterN(after, " ", -1)
-		command := strings.Trim(split[0], " ")
-		args := split[1:]
-		// fmt.Println(command)
-		// for _, sp := range split {
-		// 	fmt.Println(sp)
-		// }
+		command := strings.ToLower(strings.Trim(split[0], " "))
+		args := Map(split[1:], func(item string) string { return strings.ToUpper(strings.Trim(item, " ")) })
 		ID, _ := data.GetUserByDiscordID(message.Author.ID)
 		switch command {
 		case "link":
@@ -111,31 +107,33 @@ func messageHandler(session *discordgo.Session, message *discordgo.MessageCreate
 
 		case "c":
 			// THIS SHIT IS DRIVING ME INSANE...
-			var contentType string = "ANIME"
-			var size int = 9
-			var data []mediaListItem
 
+			// var data []mediaListItem
+			contentType := "ANIME"
+			size := 9
 			if len(args) != 0 {
 				for _, arg := range args {
-					fmt.Printf(`"%s", "%s"`, arg, strings.ToUpper(arg))
-					if strings.ToUpper(arg) == "ANIME" {
+					if arg == "ANIME" {
 						contentType = "ANIME"
+						fmt.Println("Found ANIME")
 					}
-					if strings.ToUpper(arg) == "MANGA" {
+					if arg == "MANGA" {
 						contentType = "MANGA"
+						fmt.Println("Found MANGA")
 					}
-					if arg == "4x4" {
+					if arg == "4X4" {
 						size = 16
+						fmt.Println("Found 4x4")
 					}
-					if arg == "5x5" {
+					if arg == "5X5" {
 						size = 25
+						fmt.Println("Found 5x5")
 					}
 				}
-				data = getTopMediaByID(ID, contentType, 1, size)
-			} else {
-				data = getTopMediaByID(ID, contentType, 1, size)
+				fmt.Println(size)
+				fmt.Println(contentType)
 			}
-			fmt.Println(contentType)
+			data := getTopMediaByID(ID, contentType, 1, size)
 			var URLs []string
 			for _, item := range data {
 				URLs = append(URLs, item.Media.CoverImage.Large)
