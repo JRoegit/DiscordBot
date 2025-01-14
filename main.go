@@ -2,7 +2,9 @@ package main
 
 import (
 	"discordBot/data"
+	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"strings"
@@ -12,15 +14,27 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-const Token string = "MTMyMjAzNDI3Njc1NzQwOTgwMw.GCkuAc.ruEupTtbtoNzbWNW9BeMJqSa8KDgqTG0Tduyw4"
-const MainChannelID string = "631979185526800458"
+type Env struct {
+	DiscordToken string `json:"discordToken"`
+}
 
-var AudioBuffer = make([][]byte, 0)
+var env Env
 
 func main() {
-	DownloadImageFromURL()
+	f, err := os.Open(".env")
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+
+	envVariables, err := io.ReadAll(f)
+	if err != nil {
+		panic(err)
+	}
+	json.Unmarshal(envVariables, &env)
+
 	data.Init()
-	dgSession, err := discordgo.New("Bot " + Token)
+	dgSession, err := discordgo.New("Bot " + env.DiscordToken)
 	if err != nil {
 		panic(err)
 	}
@@ -29,7 +43,6 @@ func main() {
 	dgSession.AddHandler(ready)
 
 	dgSession.Identify.Intents = discordgo.IntentsAll
-	// dgSession.Identify.Intents = discordgo.IntentsGuildMessages
 
 	err = dgSession.Open()
 	if err != nil {
@@ -37,8 +50,6 @@ func main() {
 	}
 
 	defer dgSession.Close()
-
-	// getRecommendationsByTitle("ABC")
 
 	signalChannel := make(chan os.Signal, 1)
 	signal.Notify(signalChannel, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
@@ -106,9 +117,6 @@ func messageHandler(session *discordgo.Session, message *discordgo.MessageCreate
 		case "wk":
 
 		case "c":
-			// THIS SHIT IS DRIVING ME INSANE...
-
-			// var data []mediaListItem
 			contentType := "ANIME"
 			size := 9
 			if len(args) != 0 {
@@ -130,8 +138,6 @@ func messageHandler(session *discordgo.Session, message *discordgo.MessageCreate
 						fmt.Println("Found 5x5")
 					}
 				}
-				fmt.Println(size)
-				fmt.Println(contentType)
 			}
 			data := getTopMediaByID(ID, contentType, 1, size)
 			var URLs []string
