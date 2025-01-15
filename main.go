@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"os/signal"
 	"strings"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	paginator "github.com/topi314/dgo-paginator"
 )
 
 type Env struct {
@@ -19,6 +21,7 @@ type Env struct {
 }
 
 var env Env
+var manager *paginator.Manager
 
 func main() {
 	f, err := os.Open(".env")
@@ -41,7 +44,75 @@ func main() {
 
 	dgSession.AddHandler(messageHandler)
 	dgSession.AddHandler(ready)
+	manager = paginator.NewManager()
+	dgSession.AddHandler(manager.OnInteractionCreate)
 
+	// Register the messageCreate func as a callback for MessageCreate events.
+	dgSession.AddHandler(func(s *discordgo.Session, m *discordgo.MessageCreate) {
+		if m.Author.ID == s.State.User.ID || m.Content != "!test" {
+			return
+		}
+
+	})
+
+	// dgSession.AddHandler(func(s *discordgo.Session, m *discordgo.MessageCreate) {
+	// 	if m.Author.ID == s.State.User.ID || m.Content != "!test2" {
+	// 		return
+	// 	}
+	// 	msg, _ := s.ChannelMessageSendComplex(m.ChannelID, &discordgo.MessageSend{
+	// 		Content: "press the button within 10s",
+	// 		Components: []discordgo.MessageComponent{
+	// 			discordgo.ActionsRow{
+	// 				Components: []discordgo.MessageComponent{
+	// 					&discordgo.Button{
+	// 						Label:    "click me",
+	// 						Style:    discordgo.PrimaryButton,
+	// 						CustomID: "click_me:" + m.Message.ID,
+	// 					},
+	// 				},
+	// 			},
+	// 		},
+	// 	})
+	// 	go func() {
+	// 		eventChannel, closeFunc := paginator.NewEventCollector(s, func(s *discordgo.Session, i *discordgo.InteractionCreate) bool {
+	// 			if i.Type != discordgo.InteractionMessageComponent {
+	// 				return false
+	// 			}
+	// 			data := strings.Split(i.MessageComponentData().CustomID, ":")
+	// 			if data[0] != "click_me" {
+	// 				return false
+	// 			}
+	// 			return data[1] == m.Message.ID
+	// 		})
+	// 		defer closeFunc()
+
+	// 		timer := time.NewTimer(time.Second * 10)
+	// 		defer timer.Stop()
+	// 		select {
+	// 		case i := <-eventChannel:
+	// 			fmt.Println("someone pressed the button!")
+	// 			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+	// 				Type: discordgo.InteractionResponseUpdateMessage,
+	// 				Data: &discordgo.InteractionResponseData{
+	// 					Content:    fmt.Sprintf("<@%s> pressed me first!", i.Member.User.ID),
+	// 					Components: []discordgo.MessageComponent{},
+	// 				},
+	// 			})
+	// 		case <-timer.C:
+	// 			content := "too slow!"
+	// 			_, err = s.ChannelMessageEditComplex(&discordgo.MessageEdit{
+	// 				Content:    &content,
+	// 				Components: &[]discordgo.MessageComponent{},
+	// 				ID:         msg.ID,
+	// 				Channel:    msg.ChannelID,
+	// 			})
+	// 			if err != nil {
+	// 				fmt.Println(err)
+	// 			}
+	// 		}
+
+	// 	}()
+	// })
 	dgSession.Identify.Intents = discordgo.IntentsAll
 
 	err = dgSession.Open()
@@ -87,28 +158,77 @@ func messageHandler(session *discordgo.Session, message *discordgo.MessageCreate
 			}
 
 		case "top":
-			// ID, err := data.GetUserByDiscordID(message.Author.ID)
-			// if err == sql.ErrNoRows {
-			// 	fmt.Println("No attached user")
-			// 	session.ChannelMessageSend(message.ChannelID, "> No Anilist profile linked, used .link *Username* to link your profile")
-			// 	return
-			// }
-			// if len(split) > 1 {
-			// 	switch strings.ToLower(split[1]) {
-			// 	case "manga":
-			// 		if len(split) > 2 {
+			contentType := "ANIME"
+			if len(args) != 0 {
+				for _, arg := range args {
+					if arg == "ANIME" {
+						contentType = "ANIME"
+					}
+					if arg == "MANGA" {
+						contentType = "MANGA"
+					}
+				}
+			}
+			perPage := 10
+			numPages := 10
 
-			// 		}
-			// 	case "anime":
-			// 	default:
-			// 		session.ChannelMessageSend(message.ChannelID, `> Invalid media type, try "Manga" or "Anime"`)
-			// 	}
-			// }
-			fmt.Printf("ID: %s", ID)
-			Data := getTopMediaByID(ID, "MANGA", 1, 10)
-			embed := CreateTopMediaEmbed(Data)
-			session.ChannelMessageSendEmbed(message.ChannelID, &embed)
+			Description := strings.Builder{}
+			pages := []string{}
+			thumbnails := []string{}
 
+			for i := range numPages {
+				fmt.Println(i)
+				Data := getTopMediaByID(ID, contentType, i+1, perPage)
+				thumbnails = append(thumbnails, Data[0].Media.CoverImage.Large)
+				for _, Item := range Data {
+					score := Item.Score
+					if score == math.Trunc(score) {
+						intScore := int(score)
+						if Item.Media.Title.English != "" {
+							Description.WriteString(fmt.Sprintf("**%d/10** [%s](%s) \n", intScore, Item.Media.Title.English, Item.Media.SiteURL))
+						} else if Item.Media.Title.Romaji != "" {
+							Description.WriteString(fmt.Sprintf("**%d/10** [%s](%s) \n", intScore, Item.Media.Title.Romaji, Item.Media.SiteURL))
+						} else {
+							Description.WriteString(fmt.Sprintf("**%d/10** [%s](%s) \n", intScore, Item.Media.Title.Native, Item.Media.SiteURL))
+						}
+					} else {
+						if Item.Media.Title.English != "" {
+							Description.WriteString(fmt.Sprintf("**%.1f/10** [%s](%s) \n", score, Item.Media.Title.English, Item.Media.SiteURL))
+						} else if Item.Media.Title.Romaji != "" {
+							Description.WriteString(fmt.Sprintf("**%.1f/10** [%s](%s) \n", score, Item.Media.Title.Romaji, Item.Media.SiteURL))
+						} else {
+							Description.WriteString(fmt.Sprintf("**%.1f/10** [%s](%s) \n", score, Item.Media.Title.Native, Item.Media.SiteURL))
+						}
+					}
+				}
+				pages = append(pages, Description.String())
+				Description.Reset()
+				if len(Data) < perPage {
+					perPage = i
+					break
+				}
+			}
+
+			if err := manager.CreateMessage(session, message.ChannelID, &paginator.Paginator{
+				PageFunc: func(page int, embed *discordgo.MessageEmbed) {
+					embed.Description = pages[page]
+					embed.Color = 0x00ff00
+					embed.Title = fmt.Sprintf("Top %s", strings.ToLower(contentType))
+					embed.Thumbnail = &discordgo.MessageEmbedThumbnail{
+						URL:    thumbnails[page],
+						Width:  128,
+						Height: 128,
+					}
+				},
+				MaxPages:        len(pages),
+				Expiry:          time.Now(),
+				ExpiryLastUsage: true,
+			}); err != nil {
+				fmt.Println(err)
+			}
+			// fmt.Printf("ID: %s", ID)
+			// embed := CreateTopMediaEmbed(Data)
+			// session.ChannelMessageSendEmbed(message.ChannelID, &embed)
 		case "me":
 			Data := getUserInfoByID(ID)
 			embed := CreateProfileMediaEmbed(Data)
