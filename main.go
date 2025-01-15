@@ -44,75 +44,11 @@ func main() {
 
 	dgSession.AddHandler(messageHandler)
 	dgSession.AddHandler(ready)
+
+	// Handles the button hellscape for pagination stuff.
 	manager = paginator.NewManager()
 	dgSession.AddHandler(manager.OnInteractionCreate)
 
-	// Register the messageCreate func as a callback for MessageCreate events.
-	dgSession.AddHandler(func(s *discordgo.Session, m *discordgo.MessageCreate) {
-		if m.Author.ID == s.State.User.ID || m.Content != "!test" {
-			return
-		}
-
-	})
-
-	// dgSession.AddHandler(func(s *discordgo.Session, m *discordgo.MessageCreate) {
-	// 	if m.Author.ID == s.State.User.ID || m.Content != "!test2" {
-	// 		return
-	// 	}
-	// 	msg, _ := s.ChannelMessageSendComplex(m.ChannelID, &discordgo.MessageSend{
-	// 		Content: "press the button within 10s",
-	// 		Components: []discordgo.MessageComponent{
-	// 			discordgo.ActionsRow{
-	// 				Components: []discordgo.MessageComponent{
-	// 					&discordgo.Button{
-	// 						Label:    "click me",
-	// 						Style:    discordgo.PrimaryButton,
-	// 						CustomID: "click_me:" + m.Message.ID,
-	// 					},
-	// 				},
-	// 			},
-	// 		},
-	// 	})
-	// 	go func() {
-	// 		eventChannel, closeFunc := paginator.NewEventCollector(s, func(s *discordgo.Session, i *discordgo.InteractionCreate) bool {
-	// 			if i.Type != discordgo.InteractionMessageComponent {
-	// 				return false
-	// 			}
-	// 			data := strings.Split(i.MessageComponentData().CustomID, ":")
-	// 			if data[0] != "click_me" {
-	// 				return false
-	// 			}
-	// 			return data[1] == m.Message.ID
-	// 		})
-	// 		defer closeFunc()
-
-	// 		timer := time.NewTimer(time.Second * 10)
-	// 		defer timer.Stop()
-	// 		select {
-	// 		case i := <-eventChannel:
-	// 			fmt.Println("someone pressed the button!")
-	// 			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-	// 				Type: discordgo.InteractionResponseUpdateMessage,
-	// 				Data: &discordgo.InteractionResponseData{
-	// 					Content:    fmt.Sprintf("<@%s> pressed me first!", i.Member.User.ID),
-	// 					Components: []discordgo.MessageComponent{},
-	// 				},
-	// 			})
-	// 		case <-timer.C:
-	// 			content := "too slow!"
-	// 			_, err = s.ChannelMessageEditComplex(&discordgo.MessageEdit{
-	// 				Content:    &content,
-	// 				Components: &[]discordgo.MessageComponent{},
-	// 				ID:         msg.ID,
-	// 				Channel:    msg.ChannelID,
-	// 			})
-	// 			if err != nil {
-	// 				fmt.Println(err)
-	// 			}
-	// 		}
-
-	// 	}()
-	// })
 	dgSession.Identify.Intents = discordgo.IntentsAll
 
 	err = dgSession.Open()
@@ -351,12 +287,12 @@ func CreateProfileMediaEmbed(Data user) discordgo.MessageEmbed {
 	}
 
 	embed := discordgo.MessageEmbed{
-		Author:      &discordgo.MessageEmbedAuthor{},
-		Color:       0x00ff00, // Green
-		Description: Data.About,
-		Timestamp:   time.Now().Format(time.RFC3339), // Discord wants ISO8601; RFC3339 is an extension of ISO8601 and should be completely compatible.
-		Title:       fmt.Sprintf("%s's profile.", Data.Name),
-		Fields:      fields,
+		Author: &discordgo.MessageEmbedAuthor{},
+		Color:  0x00ff00, // Green
+		// Description: Data.About //These are html for some reason??????????????? don't care to parse these atm.
+		Timestamp: time.Now().Format(time.RFC3339), // Discord wants ISO8601; RFC3339 is an extension of ISO8601 and should be completely compatible.
+		Title:     fmt.Sprintf("%s's profile.", Data.Name),
+		Fields:    fields,
 		Thumbnail: &discordgo.MessageEmbedThumbnail{
 			URL:    Data.Avatar.Medium,
 			Width:  128,
