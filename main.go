@@ -161,11 +161,13 @@ func messageHandler(session *discordgo.Session, message *discordgo.MessageCreate
 			contentType := "ANIME"
 			if len(args) != 0 {
 				for _, arg := range args {
-					if arg == "ANIME" {
+					switch arg {
+					case "ANIME":
 						contentType = "ANIME"
-					}
-					if arg == "MANGA" {
+					case "MANGA":
 						contentType = "MANGA"
+					default:
+						ID = searchUserIDByName(arg)
 					}
 				}
 			}
@@ -175,6 +177,8 @@ func messageHandler(session *discordgo.Session, message *discordgo.MessageCreate
 			Description := strings.Builder{}
 			pages := []string{}
 			thumbnails := []string{}
+
+			username := getUserInfoByID(ID).Name
 
 			for i := range numPages {
 				fmt.Println(i)
@@ -213,7 +217,7 @@ func messageHandler(session *discordgo.Session, message *discordgo.MessageCreate
 				PageFunc: func(page int, embed *discordgo.MessageEmbed) {
 					embed.Description = pages[page]
 					embed.Color = 0x00ff00
-					embed.Title = fmt.Sprintf("Top %s", strings.ToLower(contentType))
+					embed.Title = fmt.Sprintf("%s's top %s", username, strings.ToLower(contentType))
 					embed.Thumbnail = &discordgo.MessageEmbedThumbnail{
 						URL:    thumbnails[page],
 						Width:  128,
@@ -226,14 +230,21 @@ func messageHandler(session *discordgo.Session, message *discordgo.MessageCreate
 			}); err != nil {
 				fmt.Println(err)
 			}
-			// fmt.Printf("ID: %s", ID)
-			// embed := CreateTopMediaEmbed(Data)
-			// session.ChannelMessageSendEmbed(message.ChannelID, &embed)
+
 		case "me":
 			Data := getUserInfoByID(ID)
 			embed := CreateProfileMediaEmbed(Data)
 			session.ChannelMessageSendEmbed(message.ChannelID, &embed)
 
+		case "u":
+			if len(args) == 1 {
+				ID = searchUserIDByName(args[0])
+				Data := getUserInfoByID(ID)
+				embed := CreateProfileMediaEmbed(Data)
+				session.ChannelMessageSendEmbed(message.ChannelID, &embed)
+			} else {
+				session.ChannelMessageSend(message.ChannelID, "> **.u takes one argument, try again with .u __username__**")
+			}
 		case "wk":
 
 		case "c":
@@ -301,17 +312,42 @@ func CreateTopMediaEmbed(Data []mediaListItem) discordgo.MessageEmbed {
 }
 
 func CreateProfileMediaEmbed(Data user) discordgo.MessageEmbed {
-	var fields = []*discordgo.MessageEmbedField{
-		{
+	var fields = []*discordgo.MessageEmbedField{}
+
+	if float64(Data.UserStatistics.MangaStatistics.MeanScore) == math.Trunc(float64(Data.UserStatistics.MangaStatistics.MeanScore)) {
+		intScore := int(Data.UserStatistics.MangaStatistics.MeanScore) / 10
+		embed := discordgo.MessageEmbedField{
 			Name:   "Manga",
-			Value:  fmt.Sprintf("%d Manga read\n%d Chapters read\nAverage score: %.1f/10\n", Data.UserStatistics.MangaStatistics.Count, Data.UserStatistics.MangaStatistics.ChaptersRead, Data.UserStatistics.MangaStatistics.MeanScore),
+			Value:  fmt.Sprintf("%d Manga read\n%d Chapters read\nAverage score: %d/10\n", Data.UserStatistics.MangaStatistics.Count, Data.UserStatistics.MangaStatistics.ChaptersRead, intScore),
 			Inline: true,
-		},
-		{
+		}
+		fields = append(fields, &embed)
+	} else {
+		score := Data.UserStatistics.MangaStatistics.MeanScore / 10
+		embed := discordgo.MessageEmbedField{
+			Name:   "Manga",
+			Value:  fmt.Sprintf("%d Manga read\n%d Chapters read\nAverage score: %.1f/10\n", Data.UserStatistics.MangaStatistics.Count, Data.UserStatistics.MangaStatistics.ChaptersRead, score),
+			Inline: true,
+		}
+		fields = append(fields, &embed)
+	}
+
+	if float64(Data.UserStatistics.AnimeStatistics.MeanScore) == math.Trunc(float64(Data.UserStatistics.AnimeStatistics.MeanScore)) {
+		intScore := int(Data.UserStatistics.AnimeStatistics.MeanScore) / 10
+		embed := discordgo.MessageEmbedField{
 			Name:   "Anime",
-			Value:  fmt.Sprintf("%d Anime watched\n%d Epidsodes watched\nAverage score: %.1f/10\n", Data.UserStatistics.AnimeStatistics.Count, Data.UserStatistics.AnimeStatistics.EpisodesWatched, Data.UserStatistics.AnimeStatistics.MeanScore),
+			Value:  fmt.Sprintf("%d Anime watched\n%d Episodes watched\nAverage score: %d/10\n", Data.UserStatistics.AnimeStatistics.Count, Data.UserStatistics.AnimeStatistics.EpisodesWatched, intScore),
 			Inline: true,
-		},
+		}
+		fields = append(fields, &embed)
+	} else {
+		score := Data.UserStatistics.AnimeStatistics.MeanScore / 10
+		embed := discordgo.MessageEmbedField{
+			Name:   "Anime",
+			Value:  fmt.Sprintf("%d Anime watched\n%d Episodes watched\nAverage score: %.1f/10\n", Data.UserStatistics.AnimeStatistics.Count, Data.UserStatistics.AnimeStatistics.EpisodesWatched, score),
+			Inline: true,
+		}
+		fields = append(fields, &embed)
 	}
 
 	embed := discordgo.MessageEmbed{

@@ -133,22 +133,7 @@ func searchUserIDByName(userName string) string {
   			"search": "%s"
 			}
 		}`, userName))
-	// response, err := http.Post(aniListEndPoint, "application/json", reqQuery)
-	// if err != nil {
-	// 	fmt.Println(err)
-	// }
 
-	// defer response.Body.Close()
-
-	// body, err := io.ReadAll(response.Body)
-	// if err != nil {
-	// 	fmt.Println(err)
-	// }
-	// var data topLevel
-	// err = json.Unmarshal(body, &data)
-	// if err != nil {
-	// 	fmt.Println(err)
-	// }
 	data, err := fetchTopLevelFromQuery(reqQuery)
 	if err != nil {
 		fmt.Println(err)
@@ -170,23 +155,6 @@ func getTopMediaByID(AnilistID string, MediaType string, Page int, PerPage int) 
 		"type": "%s"
 		}
 	}`, AnilistID, Page, PerPage, MediaType))
-
-	// response, err := http.Post(aniListEndPoint, "application/json", reqQuery)
-	// if err != nil {
-	// 	fmt.Println(err)
-	// }
-
-	// defer response.Body.Close()
-
-	// body, err := io.ReadAll(response.Body)
-	// if err != nil {
-	// 	fmt.Println(err)
-	// }
-	// var data topLevel
-	// err = json.Unmarshal(body, &data)
-	// if err != nil {
-	// 	fmt.Println(err)
-	// }
 
 	data, err := fetchTopLevelFromQuery(reqQuery)
 	if err != nil {
