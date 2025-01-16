@@ -126,6 +126,16 @@ type title struct {
 	Romaji  string `json:"romaji"`
 }
 
+func (Title title) ToString() string {
+	if Title.English != "" {
+		return Title.English
+	} else if Title.Romaji != "" {
+		return Title.Romaji
+	} else {
+		return Title.Native
+	}
+}
+
 const aniListEndPoint string = "https://graphql.anilist.co"
 
 func searchUserIDByName(userName string) string {
@@ -192,12 +202,12 @@ func fetchTopLevelFromQuery(QueryString *strings.Reader) (topLevel, error) {
 
 func getMediaIdByName(Name string) int {
 	reqQuery := strings.NewReader(fmt.Sprintf(`{
-		"query": "query Query($search: String) {Media(search: $search) {id}}",
-		"variables: {
-			"search": "%s"
-			}
-		}`, Name))
-
+	"query": "query Query($search: String) {Media(search: $search) { id }}",
+	"variables: {
+		"search": "%s"
+		}
+	}`, Name))
+	fmt.Println(reqQuery)
 	data, err := fetchTopLevelFromQuery(reqQuery)
 	if err != nil {
 		fmt.Println(err)
@@ -207,9 +217,18 @@ func getMediaIdByName(Name string) int {
 
 func getRecommendationsByMediaId(Id int) []mediaRecItem {
 	reqQuery := strings.NewReader(fmt.Sprintf(`{
-	"query": "",
-	"variables": 
-	}`))
+	"query": "query Query($page: Int, $mediaId: Int, $perPage: Int) { Page (page: $page, perPage: $perPage) { recommendations ( mediaId: $mediaId ){ mediaRecommendation { coverImage { medium large } title { english native romaji } description averageScore genres siteUrl}}}}",
+	"variables": {
+		"page": 1,
+		"perPage": 10,
+		"mediaId": %d,
+		}
+	}`, Id))
+	data, err := fetchTopLevelFromQuery(reqQuery)
+	if err != nil {
+		fmt.Println(err)
+	}
+	return data.Data.Page.Recs
 }
 
 func getUserInfoByID(AnilistID string) user {

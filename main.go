@@ -173,34 +173,53 @@ func messageHandler(session *discordgo.Session, message *discordgo.MessageCreate
 		case "wk":
 
 		case "rec":
-			if len(args) == 1 {
-				mediaId := getMediaIdByName(args[0])
-				recs := 
+			if len(args) >= 1 {
+				searchTitle := strings.Builder{}
+				for _, arg := range args {
+					searchTitle.WriteString(arg + " ")
+				}
+				fmt.Println(searchTitle.String())
+				mediaId := getMediaIdByName(searchTitle.String())
+				fmt.Println(mediaId)
+				recs := getRecommendationsByMediaId(mediaId)
+
+				fmt.Println(len(recs))
+				numPages := len(recs)
+
+				Description := strings.Builder{}
+				pages := []string{}
+				thumbnails := []string{}
+
+				for i := range numPages - 1 {
+					fmt.Println(i)
+					thumbnails = append(thumbnails, recs[i].Media.CoverImage.Large)
+					Description.WriteString(recs[i].Media.ToCleanString())
+					pages = append(pages, Description.String())
+					Description.Reset()
+				}
+
+				if err := manager.CreateMessage(session, message.ChannelID, &paginator.Paginator{
+					PageFunc: func(page int, embed *discordgo.MessageEmbed) {
+						embed.Description = pages[page]
+						embed.Color = 0x00ff00
+						embed.Title = fmt.Sprintf("%s", recs[page].Media.Title.ToString())
+						embed.Thumbnail = &discordgo.MessageEmbedThumbnail{
+							URL:    thumbnails[page],
+							Width:  128,
+							Height: 128,
+						}
+					},
+					MaxPages:        len(pages),
+					Expiry:          time.Now(),
+					ExpiryLastUsage: true,
+				}); err != nil {
+					fmt.Println(err)
+				}
 			} else {
-				session.ChannelMessageSend(message.ChannelID, "> **.u takes one argument, try again with .u __username__**")
+				session.ChannelMessageSend(message.ChannelID, "> **.rec takes one argument, try again with .rec __title__**")
 			}
 
 		case "c":
-			// if len(args) != 0 {
-			// 	for _, arg := range args {
-			// 		if arg == "ANIME" {
-			// 			contentType = "ANIME"
-			// 			fmt.Println("Found ANIME")
-			// 		}
-			// 		if arg == "MANGA" {
-			// 			contentType = "MANGA"
-			// 			fmt.Println("Found MANGA")
-			// 		}
-			// 		if arg == "4X4" {
-			// 			size = 16
-			// 			fmt.Println("Found 4x4")
-			// 		}
-			// 		if arg == "5X5" {
-			// 			size = 25
-			// 			fmt.Println("Found 5x5")
-			// 		}
-			// 	}
-			// }
 			data := getTopMediaByID(ID, contentType, 1, size)
 			var URLs []string
 			for _, item := range data {
