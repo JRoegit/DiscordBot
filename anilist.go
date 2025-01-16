@@ -38,28 +38,6 @@ type mediaListItem struct {
 	CompletedAt fuzzyDate `json:"completedAt"`
 }
 
-func (Item *mediaListItem) ToRatingString() string {
-	score := Item.Score
-	if score == math.Trunc(score) {
-		intScore := int(score)
-		if Item.Media.Title.English != "" {
-			return fmt.Sprintf("**%d/10** [%s](%s) \n", intScore, Item.Media.Title.English, Item.Media.SiteURL)
-		} else if Item.Media.Title.Romaji != "" {
-			return fmt.Sprintf("**%d/10** [%s](%s) \n", intScore, Item.Media.Title.Romaji, Item.Media.SiteURL)
-		} else {
-			return fmt.Sprintf("**%d/10** [%s](%s) \n", intScore, Item.Media.Title.Native, Item.Media.SiteURL)
-		}
-	} else {
-		if Item.Media.Title.English != "" {
-			return fmt.Sprintf("**%.1f/10** [%s](%s) \n", score, Item.Media.Title.English, Item.Media.SiteURL)
-		} else if Item.Media.Title.Romaji != "" {
-			return fmt.Sprintf("**%.1f/10** [%s](%s) \n", score, Item.Media.Title.Romaji, Item.Media.SiteURL)
-		} else {
-			return fmt.Sprintf("**%.1f/10** [%s](%s) \n", score, Item.Media.Title.Native, Item.Media.SiteURL)
-		}
-	}
-}
-
 type fuzzyDate struct {
 	Day   int `json:"day"`
 	Month int `json:"month"`
@@ -111,10 +89,6 @@ type media struct {
 	Genres       []string   `json:"genres"`
 }
 
-func (Media *media) ToCleanString() string {
-	return bluemonday.UGCPolicy().Sanitize(Media.Description)
-}
-
 type coverImage struct {
 	Large  string `json:"large"`
 	Medium string `json:"medium"`
@@ -126,6 +100,10 @@ type title struct {
 	Romaji  string `json:"romaji"`
 }
 
+func (Media *media) ToCleanString() string {
+	return bluemonday.UGCPolicy().Sanitize(Media.Description)
+}
+
 func (Title title) ToString() string {
 	if Title.English != "" {
 		return Title.English
@@ -133,6 +111,28 @@ func (Title title) ToString() string {
 		return Title.Romaji
 	} else {
 		return Title.Native
+	}
+}
+
+func (Item *mediaListItem) ToRatingString() string {
+	score := Item.Score
+	if score == math.Trunc(score) {
+		intScore := int(score)
+		if Item.Media.Title.English != "" {
+			return fmt.Sprintf("**%d/10** [%s](%s) \n", intScore, Item.Media.Title.English, Item.Media.SiteURL)
+		} else if Item.Media.Title.Romaji != "" {
+			return fmt.Sprintf("**%d/10** [%s](%s) \n", intScore, Item.Media.Title.Romaji, Item.Media.SiteURL)
+		} else {
+			return fmt.Sprintf("**%d/10** [%s](%s) \n", intScore, Item.Media.Title.Native, Item.Media.SiteURL)
+		}
+	} else {
+		if Item.Media.Title.English != "" {
+			return fmt.Sprintf("**%.1f/10** [%s](%s) \n", score, Item.Media.Title.English, Item.Media.SiteURL)
+		} else if Item.Media.Title.Romaji != "" {
+			return fmt.Sprintf("**%.1f/10** [%s](%s) \n", score, Item.Media.Title.Romaji, Item.Media.SiteURL)
+		} else {
+			return fmt.Sprintf("**%.1f/10** [%s](%s) \n", score, Item.Media.Title.Native, Item.Media.SiteURL)
+		}
 	}
 }
 
@@ -202,12 +202,11 @@ func fetchTopLevelFromQuery(QueryString *strings.Reader) (topLevel, error) {
 
 func getMediaIdByName(Name string) int {
 	reqQuery := strings.NewReader(fmt.Sprintf(`{
-	"query": "query Query($search: String) {Media(search: $search) { id }}",
-	"variables: {
+	"query": "query Query($search: String) { Media(search: $search) { id }}",
+	"variables": {
 		"search": "%s"
 		}
 	}`, Name))
-	fmt.Println(reqQuery)
 	data, err := fetchTopLevelFromQuery(reqQuery)
 	if err != nil {
 		fmt.Println(err)
@@ -216,19 +215,28 @@ func getMediaIdByName(Name string) int {
 }
 
 func getRecommendationsByMediaId(Id int) []mediaRecItem {
+	var MediaRecItems []mediaRecItem
+
 	reqQuery := strings.NewReader(fmt.Sprintf(`{
-	"query": "query Query($page: Int, $mediaId: Int, $perPage: Int) { Page (page: $page, perPage: $perPage) { recommendations ( mediaId: $mediaId ){ mediaRecommendation { coverImage { medium large } title { english native romaji } description averageScore genres siteUrl}}}}",
+	"query": "query Query($page: Int, $mediaId: Int, $perPage: Int) { Page(page: $page, perPage: $perPage) { recommendations(mediaId: $mediaId) { mediaRecommendation { coverImage { medium large } title { english native romaji } description averageScore genres siteUrl }}}}",
 	"variables": {
 		"page": 1,
 		"perPage": 10,
-		"mediaId": %d,
+		"mediaId": %d
 		}
 	}`, Id))
+	fmt.Println(reqQuery)
+
 	data, err := fetchTopLevelFromQuery(reqQuery)
 	if err != nil {
 		fmt.Println(err)
 	}
-	return data.Data.Page.Recs
+
+	for _, Item := range data.Data.Page.Recs {
+		MediaRecItems = append(MediaRecItems, Item)
+	}
+
+	return MediaRecItems
 }
 
 func getUserInfoByID(AnilistID string) user {

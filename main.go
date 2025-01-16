@@ -64,7 +64,7 @@ func main() {
 }
 
 func ready(session *discordgo.Session, event *discordgo.Ready) {
-	session.UpdateCustomStatus("Writen in Go")
+	session.UpdateCustomStatus("Written in Go")
 }
 
 func messageHandler(session *discordgo.Session, message *discordgo.MessageCreate) {
@@ -185,17 +185,32 @@ func messageHandler(session *discordgo.Session, message *discordgo.MessageCreate
 
 				fmt.Println(len(recs))
 				numPages := len(recs)
+				if len(recs) == 0 {
+					session.ChannelMessageSend(message.ChannelID, "> **hmm, we couldn't find any media with that title... try something else.**")
+					return
+				}
 
 				Description := strings.Builder{}
+				Footer := strings.Builder{}
 				pages := []string{}
+				footers := []string{}
 				thumbnails := []string{}
 
-				for i := range numPages - 1 {
-					fmt.Println(i)
+				for i := range numPages {
 					thumbnails = append(thumbnails, recs[i].Media.CoverImage.Large)
+					Description.WriteString(fmt.Sprintf("Average score : %d/100 \n%s \n\n", recs[i].Media.AverageScore, recs[i].Media.SiteURL))
 					Description.WriteString(recs[i].Media.ToCleanString())
+					for j, genre := range recs[i].Media.Genres {
+						if j < len(recs[i].Media.Genres)-1 {
+							Footer.WriteString(genre + " - ")
+						} else {
+							Footer.WriteString(genre)
+						}
+					}
 					pages = append(pages, Description.String())
+					footers = append(footers, Footer.String())
 					Description.Reset()
+					Footer.Reset()
 				}
 
 				if err := manager.CreateMessage(session, message.ChannelID, &paginator.Paginator{
@@ -203,6 +218,9 @@ func messageHandler(session *discordgo.Session, message *discordgo.MessageCreate
 						embed.Description = pages[page]
 						embed.Color = 0x00ff00
 						embed.Title = fmt.Sprintf("%s", recs[page].Media.Title.ToString())
+						embed.Footer = &discordgo.MessageEmbedFooter{
+							Text: footers[page] + fmt.Sprintf("\nPage %d/%d", page+1, numPages),
+						}
 						embed.Thumbnail = &discordgo.MessageEmbedThumbnail{
 							URL:    thumbnails[page],
 							Width:  128,
