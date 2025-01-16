@@ -4,9 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"strconv"
 	"strings"
+
+	"github.com/microcosm-cc/bluemonday"
 )
 
 type anilistID struct {
@@ -18,8 +21,9 @@ type topLevel struct {
 }
 
 type aniData struct {
-	Page page `json:"Page"`
-	User user `json:"User"`
+	Page  page  `json:"Page"`
+	User  user  `json:"User"`
+	Media media `json:"Media"`
 }
 
 type page struct {
@@ -32,6 +36,28 @@ type mediaListItem struct {
 	Score       float64   `json:"score"`
 	StartedAt   fuzzyDate `json:"startedAt"`
 	CompletedAt fuzzyDate `json:"completedAt"`
+}
+
+func (Item *mediaListItem) ToRatingString() string {
+	score := Item.Score
+	if score == math.Trunc(score) {
+		intScore := int(score)
+		if Item.Media.Title.English != "" {
+			return fmt.Sprintf("**%d/10** [%s](%s) \n", intScore, Item.Media.Title.English, Item.Media.SiteURL)
+		} else if Item.Media.Title.Romaji != "" {
+			return fmt.Sprintf("**%d/10** [%s](%s) \n", intScore, Item.Media.Title.Romaji, Item.Media.SiteURL)
+		} else {
+			return fmt.Sprintf("**%d/10** [%s](%s) \n", intScore, Item.Media.Title.Native, Item.Media.SiteURL)
+		}
+	} else {
+		if Item.Media.Title.English != "" {
+			return fmt.Sprintf("**%.1f/10** [%s](%s) \n", score, Item.Media.Title.English, Item.Media.SiteURL)
+		} else if Item.Media.Title.Romaji != "" {
+			return fmt.Sprintf("**%.1f/10** [%s](%s) \n", score, Item.Media.Title.Romaji, Item.Media.SiteURL)
+		} else {
+			return fmt.Sprintf("**%.1f/10** [%s](%s) \n", score, Item.Media.Title.Native, Item.Media.SiteURL)
+		}
+	}
 }
 
 type fuzzyDate struct {
@@ -76,9 +102,17 @@ type mediaRecItem struct {
 }
 
 type media struct {
-	CoverImage coverImage `json:"coverImage"`
-	Title      title      `json:"title"`
-	SiteURL    string     `json:"siteUrl"`
+	Id           int        `json:"id"`
+	Description  string     `json:"description"`
+	CoverImage   coverImage `json:"coverImage"`
+	Title        title      `json:"title"`
+	SiteURL      string     `json:"siteUrl"`
+	AverageScore int        `json:"averageScore"`
+	Genres       []string   `json:"genres"`
+}
+
+func (Media *media) ToCleanString() string {
+	return bluemonday.UGCPolicy().Sanitize(Media.Description)
 }
 
 type coverImage struct {
@@ -92,39 +126,17 @@ type title struct {
 	Romaji  string `json:"romaji"`
 }
 
-const aniListEndPoint string = "https://graphql.anilist.co"
-
-func getRecommendationsByTitle(title string) topLevel {
-	reqBody := strings.NewReader(`{
-    "query": "query Query($page: Int, $mediaId: Int) {Page(page: $page) {recommendations(mediaId: $mediaId) {mediaRecommendation {coverImage{large}title {english native romaji}}}}}",
-    "variables": {
-        "page": 1,
-        "mediaId": 105778
-        }
-	}`)
-
-	response, err := http.Post(aniListEndPoint, "application/json", reqBody)
-	if err != nil {
-		return topLevel{}
+func (Title title) ToString() string {
+	if Title.English != "" {
+		return Title.English
+	} else if Title.Romaji != "" {
+		return Title.Romaji
+	} else {
+		return Title.Native
 	}
-
-	defer response.Body.Close()
-
-	body, err := io.ReadAll(response.Body)
-	if err != nil {
-		return topLevel{}
-	}
-
-	var data = topLevel{}
-	err = json.Unmarshal(body, &data)
-	if err != nil {
-		return topLevel{}
-	}
-	fmt.Println(data.Data.Page.Recs[0].Media.Title.English)
-	fmt.Println(data)
-
-	return data
 }
+
+const aniListEndPoint string = "https://graphql.anilist.co"
 
 func searchUserIDByName(userName string) string {
 	reqQuery := strings.NewReader(fmt.Sprintf(`{
@@ -186,6 +198,37 @@ func fetchTopLevelFromQuery(QueryString *strings.Reader) (topLevel, error) {
 		return topLevel{}, err
 	}
 	return data, nil
+}
+
+func getMediaIdByName(Name string) int {
+	reqQuery := strings.NewReader(fmt.Sprintf(`{
+	"query": "query Query($search: String) {Media(search: $search) { id }}",
+	"variables: {
+		"search": "%s"
+		}
+	}`, Name))
+	fmt.Println(reqQuery)
+	data, err := fetchTopLevelFromQuery(reqQuery)
+	if err != nil {
+		fmt.Println(err)
+	}
+	return data.Data.Media.Id
+}
+
+func getRecommendationsByMediaId(Id int) []mediaRecItem {
+	reqQuery := strings.NewReader(fmt.Sprintf(`{
+	"query": "query Query($page: Int, $mediaId: Int, $perPage: Int) { Page (page: $page, perPage: $perPage) { recommendations ( mediaId: $mediaId ){ mediaRecommendation { coverImage { medium large } title { english native romaji } description averageScore genres siteUrl}}}}",
+	"variables": {
+		"page": 1,
+		"perPage": 10,
+		"mediaId": %d,
+		}
+	}`, Id))
+	data, err := fetchTopLevelFromQuery(reqQuery)
+	if err != nil {
+		fmt.Println(err)
+	}
+	return data.Data.Page.Recs
 }
 
 func getUserInfoByID(AnilistID string) user {

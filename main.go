@@ -79,6 +79,26 @@ func messageHandler(session *discordgo.Session, message *discordgo.MessageCreate
 		command := strings.ToLower(strings.Trim(split[0], " "))
 		args := Map(split[1:], func(item string) string { return strings.ToUpper(strings.Trim(item, " ")) })
 		ID, _ := data.GetUserByDiscordID(message.Author.ID)
+
+		contentType := "ANIME"
+		size := 9
+
+		if len(args) != 0 {
+			for _, arg := range args {
+				switch arg {
+				case "ANIME":
+					contentType = "ANIME"
+				case "MANGA":
+					contentType = "MANGA"
+				case "4X4":
+					size = 16
+				case "5X5":
+					size = 25
+				default:
+					ID = searchUserIDByName(arg)
+				}
+			}
+		}
 		switch command {
 		case "link":
 			if len(args) == 1 {
@@ -94,19 +114,6 @@ func messageHandler(session *discordgo.Session, message *discordgo.MessageCreate
 			}
 
 		case "top":
-			contentType := "ANIME"
-			if len(args) != 0 {
-				for _, arg := range args {
-					switch arg {
-					case "ANIME":
-						contentType = "ANIME"
-					case "MANGA":
-						contentType = "MANGA"
-					default:
-						ID = searchUserIDByName(arg)
-					}
-				}
-			}
 			perPage := 10
 			numPages := 10
 
@@ -121,25 +128,7 @@ func messageHandler(session *discordgo.Session, message *discordgo.MessageCreate
 				Data := getTopMediaByID(ID, contentType, i+1, perPage)
 				thumbnails = append(thumbnails, Data[0].Media.CoverImage.Large)
 				for _, Item := range Data {
-					score := Item.Score
-					if score == math.Trunc(score) {
-						intScore := int(score)
-						if Item.Media.Title.English != "" {
-							Description.WriteString(fmt.Sprintf("**%d/10** [%s](%s) \n", intScore, Item.Media.Title.English, Item.Media.SiteURL))
-						} else if Item.Media.Title.Romaji != "" {
-							Description.WriteString(fmt.Sprintf("**%d/10** [%s](%s) \n", intScore, Item.Media.Title.Romaji, Item.Media.SiteURL))
-						} else {
-							Description.WriteString(fmt.Sprintf("**%d/10** [%s](%s) \n", intScore, Item.Media.Title.Native, Item.Media.SiteURL))
-						}
-					} else {
-						if Item.Media.Title.English != "" {
-							Description.WriteString(fmt.Sprintf("**%.1f/10** [%s](%s) \n", score, Item.Media.Title.English, Item.Media.SiteURL))
-						} else if Item.Media.Title.Romaji != "" {
-							Description.WriteString(fmt.Sprintf("**%.1f/10** [%s](%s) \n", score, Item.Media.Title.Romaji, Item.Media.SiteURL))
-						} else {
-							Description.WriteString(fmt.Sprintf("**%.1f/10** [%s](%s) \n", score, Item.Media.Title.Native, Item.Media.SiteURL))
-						}
-					}
+					Description.WriteString(Item.ToRatingString())
 				}
 				pages = append(pages, Description.String())
 				Description.Reset()
@@ -183,29 +172,54 @@ func messageHandler(session *discordgo.Session, message *discordgo.MessageCreate
 			}
 		case "wk":
 
-		case "c":
-			contentType := "ANIME"
-			size := 9
-			if len(args) != 0 {
+		case "rec":
+			if len(args) >= 1 {
+				searchTitle := strings.Builder{}
 				for _, arg := range args {
-					if arg == "ANIME" {
-						contentType = "ANIME"
-						fmt.Println("Found ANIME")
-					}
-					if arg == "MANGA" {
-						contentType = "MANGA"
-						fmt.Println("Found MANGA")
-					}
-					if arg == "4X4" {
-						size = 16
-						fmt.Println("Found 4x4")
-					}
-					if arg == "5X5" {
-						size = 25
-						fmt.Println("Found 5x5")
-					}
+					searchTitle.WriteString(arg + " ")
 				}
+				fmt.Println(searchTitle.String())
+				mediaId := getMediaIdByName(searchTitle.String())
+				fmt.Println(mediaId)
+				recs := getRecommendationsByMediaId(mediaId)
+
+				fmt.Println(len(recs))
+				numPages := len(recs)
+
+				Description := strings.Builder{}
+				pages := []string{}
+				thumbnails := []string{}
+
+				for i := range numPages - 1 {
+					fmt.Println(i)
+					thumbnails = append(thumbnails, recs[i].Media.CoverImage.Large)
+					Description.WriteString(recs[i].Media.ToCleanString())
+					pages = append(pages, Description.String())
+					Description.Reset()
+				}
+
+				if err := manager.CreateMessage(session, message.ChannelID, &paginator.Paginator{
+					PageFunc: func(page int, embed *discordgo.MessageEmbed) {
+						embed.Description = pages[page]
+						embed.Color = 0x00ff00
+						embed.Title = fmt.Sprintf("%s", recs[page].Media.Title.ToString())
+						embed.Thumbnail = &discordgo.MessageEmbedThumbnail{
+							URL:    thumbnails[page],
+							Width:  128,
+							Height: 128,
+						}
+					},
+					MaxPages:        len(pages),
+					Expiry:          time.Now(),
+					ExpiryLastUsage: true,
+				}); err != nil {
+					fmt.Println(err)
+				}
+			} else {
+				session.ChannelMessageSend(message.ChannelID, "> **.rec takes one argument, try again with .rec __title__**")
 			}
+
+		case "c":
 			data := getTopMediaByID(ID, contentType, 1, size)
 			var URLs []string
 			for _, item := range data {
