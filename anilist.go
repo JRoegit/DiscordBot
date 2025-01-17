@@ -101,7 +101,7 @@ type title struct {
 }
 
 func (Media *media) ToCleanString() string {
-	return bluemonday.UGCPolicy().Sanitize(Media.Description)
+	return strings.ReplaceAll(strings.ReplaceAll(bluemonday.StrictPolicy().Sanitize(Media.Description), "&#39;", "'"), "&#34;", `"`)
 }
 
 func (Title title) ToString() string {
